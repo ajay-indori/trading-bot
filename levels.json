@@ -1,13 +1,14 @@
 {
   "MOSCHIP": {
-    "support": 195,
-    "resistance": 200,
-    "buffer_pct": 0.5
+    "support": 190.0,
+    "resistance": 210.0,
+    "buffer_pct": 0.5,
+    "quantity": 1
   },
   "PACEDIGITK": {
     "support": 170.0,
-    "resistance": 200.0,
+    "resistance": 190.0,
     "buffer_pct": 0.5,
-    "quantity": 10
+    "quantity": 1
   }
 }
