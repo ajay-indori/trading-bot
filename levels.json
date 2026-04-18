@@ -10,5 +10,11 @@
     "resistance": 190.0,
     "buffer_pct": 0.5,
     "quantity": 1
+  },
+  "URBANCO": {
+    "support": 130.0,
+    "resistance": 200.0,
+    "buffer_pct": 0.5,
+    "quantity": 10
   }
 }
