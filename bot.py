@@ -2,6 +2,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
+import json
 import pyotp
 import time
 import logging
@@ -84,8 +85,42 @@ def get_signal(price, buy_target, sell_target, stop_loss):
         return "HOLD"
 
 # ── Place order ───────────────────────────────────────────
+import json
+from datetime import datetime
+
+TRADES_FILE = "trades.json"
+
+def load_trades():
+    if os.path.exists(TRADES_FILE):
+        with open(TRADES_FILE) as f:
+            return json.load(f)
+    return []
+
+def save_trade(symbol, action, price, quantity):
+    trades = load_trades()
+    trades.append({
+        "symbol":    symbol,
+        "action":    action,
+        "price":     price,
+        "quantity":  quantity,
+        "time":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "pnl":       None
+    })
+    # Calculate P&L if this is a SELL
+    if action in ("SELL", "STOP_LOSS"):
+        # Find the last BUY for this symbol
+        for t in reversed(trades[:-1]):
+            if t["symbol"] == symbol and t["action"] == "BUY" and t["pnl"] is None:
+                pnl = round((price - t["price"]) * quantity, 2)
+                trades[-1]["pnl"] = pnl
+                t["pnl"] = "closed"
+                break
+    with open(TRADES_FILE, "w") as f:
+        json.dump(trades, f, indent=2)
+
+# ── Place order helper ────────────────────────────────────
 def place_order(symbol, transaction_type, price, quantity):
-    return client.place_order(
+    order = client.place_order(
         trading_symbol=symbol,
         quantity=quantity,
         validity=client.VALIDITY_DAY,
@@ -96,7 +131,9 @@ def place_order(symbol, transaction_type, price, quantity):
         transaction_type=transaction_type,
         price=price
     )
-
+    action = "BUY" if transaction_type == client.TRANSACTION_TYPE_BUY else "SELL"
+    save_trade(symbol, action, price, quantity)
+    return order
 # ── Process one stock ─────────────────────────────────────
 def process_stock(symbol, config):
     try:
