@@ -171,7 +171,8 @@ def get_sr_signal(symbol, current_price, level):
     return raw_signal, support, resistance
 
 # ── Process one stock ─────────────────────────────────────
-def process_stock(symbol, level):
+# ── Process one stock ─────────────────────────────────────
+def process_stock(symbol, level, trading_enabled=True):
     try:
         ltp_data      = client.get_ltp(
             segment=client.SEGMENT_CASH,
@@ -180,6 +181,13 @@ def process_stock(symbol, level):
         current_price = ltp_data[f"NSE_{symbol}"]
         quantity      = level.get("quantity", 1)
         stop_loss     = round(current_price * STOP_PCT, 1)
+
+        # Always log price so dashboard can show it
+        log.info(f"{symbol} ₹{current_price} | Signal: HOLD")
+
+        # Only trade during market hours
+        if not trading_enabled:
+            return
 
         signal, support, resistance = get_sr_signal(symbol, current_price, level)
         log.info(f"{symbol} ₹{current_price} | Support: ₹{support} | Resistance: ₹{resistance} | Signal: {signal}")
@@ -207,16 +215,10 @@ def process_stock(symbol, level):
 
     except Exception as e:
         log.error(f"❌ Error processing {symbol}: {e}")
-
+# ── Main loop ─────────────────────────────────────────────
 # ── Main loop ─────────────────────────────────────────────
 while True:
     try:
-        if not is_market_open():
-            log.info("Market is closed. Waiting 5 minutes...")
-            time.sleep(300)
-            continue
-
-        # Read stocks fresh from levels.json every scan
         levels = load_levels()
 
         if not levels:
@@ -224,10 +226,17 @@ while True:
             time.sleep(300)
             continue
 
-        log.info(f"── Scanning {len(levels)} stocks ─────────────────")
+        market_open = is_market_open()
+
+        if market_open:
+            log.info(f"── Market OPEN | Scanning {len(levels)} stocks ────")
+        else:
+            log.info(f"── Market CLOSED | Fetching prices only ────────")
+
         for symbol, level in levels.items():
-            process_stock(symbol, level)
+            process_stock(symbol, level, trading_enabled=market_open)
             time.sleep(1)
+
         log.info("── Scan complete. Next in 5 minutes ────")
 
     except Exception as e:
