@@ -1,0 +1,4 @@
+growwapi
+pyotp
+flask
+requests
