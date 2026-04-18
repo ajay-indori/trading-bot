@@ -1,24 +1,4 @@
 {
-  "INFY": {
-    "support": 1280,
-    "resistance": 1400,
-    "buffer_pct": 0.5
-  },
-  "RELIANCE": {
-    "support": 1150,
-    "resistance": 1280,
-    "buffer_pct": 0.5
-  },
-  "TCS": {
-    "support": 2500,
-    "resistance": 2650,
-    "buffer_pct": 0.5
-  },
-  "HDFCBANK": {
-    "support": 770,
-    "resistance": 850,
-    "buffer_pct": 0.5
-  },
   "MOSCHIP": {
     "support": 195,
     "resistance": 200,
