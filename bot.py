@@ -23,14 +23,16 @@ log = logging.getLogger()
 
 # ── Auto-load credentials from .env ──────────────────────
 def load_env():
-    with open(".env") as f:
-        for line in f:
-            line = line.strip()
-            if "=" in line and not line.startswith("#"):
-                key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip()
+    if os.path.exists(".env"):
+        with open(".env") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line and not line.startswith("#"):
+                    key, value = line.split("=", 1)
+                    os.environ[key.strip()] = value.strip()
 
 load_env()
+
 TOTP_TOKEN         = os.environ.get("GROWW_TOTP_TOKEN")
 TOTP_SECRET        = os.environ.get("GROWW_TOTP_SECRET")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
