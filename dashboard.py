@@ -1,9 +1,67 @@
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, session, redirect, url_for
+from functools import wraps
 import os, re, json
 from stock_scanner import load_suggestions
 from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("DASHBOARD_SECRET_KEY", "changeme-set-in-railway")
+
+DASHBOARD_USER = os.environ.get("DASHBOARD_USER", "admin")
+DASHBOARD_PASS = os.environ.get("DASHBOARD_PASS", "admin")
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+LOGIN_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Bot — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@800&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#080c10;color:#c9d1d9;font-family:"Space Mono",monospace;min-height:100vh;display:flex;align-items:center;justify-content:center}
+  body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+  .login-box{background:#0d1117;border:1px solid #1e2d3d;border-radius:12px;padding:48px 40px;width:100%;max-width:380px;position:relative;z-index:1}
+  .login-box::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:#00ff88;border-radius:12px 12px 0 0}
+  .logo{font-family:"Syne",sans-serif;font-size:20px;font-weight:800;margin-bottom:8px;text-align:center}
+  .logo span{color:#00ff88}
+  .subtitle{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#4a5568;text-align:center;margin-bottom:36px}
+  .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+  .form-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#4a5568}
+  .form-input{background:#0a0f16;border:1px solid #1e2d3d;border-radius:4px;color:#c9d1d9;font-family:"Space Mono",monospace;font-size:13px;padding:10px 14px;outline:none;transition:border-color 0.2s;width:100%}
+  .form-input:focus{border-color:#00ff88}
+  .login-btn{background:#00ff88;border:none;border-radius:4px;color:#000;cursor:pointer;font-family:"Space Mono",monospace;font-size:12px;font-weight:700;letter-spacing:1px;padding:12px;transition:all 0.2s;width:100%;margin-top:8px}
+  .login-btn:hover{background:#00cc6a}
+  .error{background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);border-radius:4px;color:#ff4444;font-size:11px;padding:10px 14px;margin-bottom:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div class="logo">TRADE <span>BOT</span></div>
+  <div class="subtitle">Secure Access Required</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST" action="/login">
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input class="form-input" type="text" name="username" placeholder="Enter username" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" name="password" placeholder="Enter password">
+    </div>
+    <button class="login-btn" type="submit">ACCESS DASHBOARD</button>
+  </form>
+</div>
+</body>
+</html>'''
 
 LOG_FILE    = "bot_log.txt"
 TRADES_FILE = "trades.json"
@@ -70,6 +128,7 @@ def get_bot_status():
 
 # ── API Routes ────────────────────────────────────────────
 @app.route('/api/data')
+@login_required
 def api_data():
     trades, signals, errors = parse_logs()
     prices, latest_signals  = get_latest_prices(signals)
@@ -89,10 +148,12 @@ def api_data():
     })
 
 @app.route('/api/levels', methods=['GET'])
+@login_required
 def get_levels():
     return jsonify(load_levels())
 
 @app.route('/api/levels/add', methods=['POST'])
+@login_required
 def add_level():
     data   = request.json
     symbol = data.get("symbol", "").upper().strip()
@@ -109,6 +170,7 @@ def add_level():
     return jsonify({"success": True, "message": f"{symbol} added successfully"})
 
 @app.route('/api/levels/delete', methods=['POST'])
+@login_required
 def delete_level():
     symbol = request.json.get("symbol", "").upper().strip()
     levels = load_levels()
@@ -119,8 +181,25 @@ def delete_level():
     return jsonify({"success": False, "error": f"{symbol} not found"})
 
 @app.route('/api/suggestions')
+@login_required
 def get_suggestions():
     return jsonify(load_suggestions())
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if (request.form.get('username') == DASHBOARD_USER and
+                request.form.get('password') == DASHBOARD_PASS):
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        error = 'Invalid username or password'
+    return render_template_string(LOGIN_HTML, error=error)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 # ── HTML Dashboard ────────────────────────────────────────
 HTML = """
@@ -606,6 +685,7 @@ setInterval(loadData, 30000);
 """
 
 @app.route('/')
+@login_required
 def index():
     return render_template_string(HTML)
 
