@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, render_template_string, request, session, redirect, url_for
 from functools import wraps
 import os, re, json
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 from stock_scanner import load_suggestions
 from datetime import datetime
 
