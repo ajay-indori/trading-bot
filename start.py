@@ -12,10 +12,16 @@ def run_bot():
 def run_dashboard():
     subprocess.run([sys.executable, "dashboard.py"])
 
-# Run scanner in background thread
-scanner_thread = threading.Thread(target=run_scanner)
-scanner_thread.daemon = True
-scanner_thread.start()
+# Run scanner in background thread only when need
+import threading
+import subprocess
+import sys
+
+def run_bot():
+    subprocess.run([sys.executable, "bot.py"])
+
+def run_dashboard():
+    subprocess.run([sys.executable, "dashboard.py"])
 
 # Run bot in background thread
 bot_thread = threading.Thread(target=run_bot)
