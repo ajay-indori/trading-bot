@@ -48,10 +48,21 @@ def send_telegram(message):
         log.error(f"Telegram error: {e}")
 
 # ── Connect to Groww ──────────────────────────────────────
-totp         = pyotp.TOTP(TOTP_SECRET).now()
-access_token = GrowwAPI.get_access_token(api_key=TOTP_TOKEN, totp=totp)
-client       = GrowwAPI(access_token)
-log.info("Connected! Bot is running...")
+client = None
+for attempt in range(5):
+    try:
+        totp         = pyotp.TOTP(TOTP_SECRET).now()
+        access_token = GrowwAPI.get_access_token(api_key=TOTP_TOKEN, totp=totp)
+        client       = GrowwAPI(access_token)
+        log.info("Connected! Bot is running...")
+        break
+    except Exception as e:
+        log.error(f"Groww connection attempt {attempt+1} failed: {e}")
+        time.sleep(5)
+
+if client is None:
+    log.error("Could not connect to Groww after 5 attempts. Exiting.")
+    sys.exit(1)
 
 # ── Settings ──────────────────────────────────────────────
 STOP_PCT    = 0.97
