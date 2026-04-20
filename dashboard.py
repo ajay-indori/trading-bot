@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template_string, request
 import os, re, json
+from stock_scanner import load_suggestions
 from datetime import datetime
 
 app = Flask(__name__)
@@ -117,6 +118,10 @@ def delete_level():
         return jsonify({"success": True, "message": f"{symbol} removed"})
     return jsonify({"success": False, "error": f"{symbol} not found"})
 
+@app.route('/api/suggestions')
+def get_suggestions():
+    from stock_scanner import load_suggestions
+    return jsonify(load_suggestions())
 # ── HTML Dashboard ────────────────────────────────────────
 HTML = """
 <!DOCTYPE html>
@@ -225,6 +230,17 @@ HTML = """
   .log-row:last-child{border-bottom:none}
   .log-time{color:var(--muted);white-space:nowrap;flex-shrink:0;font-size:10px}
   .full-panel{grid-column:1/-1}
+  .suggestion-card{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(30,45,61,0.5);gap:12px}
+  .suggestion-card:last-child{border-bottom:none}
+  .sug-info{flex:1;min-width:0}
+  .sug-symbol{font-family:'Syne',sans-serif;font-size:14px;font-weight:800}
+  .sug-price{font-size:13px;color:var(--accent);font-weight:700}
+  .sug-reason{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sug-vol{font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(0,255,136,0.1);color:var(--accent);border:1px solid rgba(0,255,136,0.2);white-space:nowrap}
+  .sug-vol.low{background:rgba(74,85,104,0.1);color:var(--muted);border-color:rgba(74,85,104,0.2)}
+  .add-sug-btn{background:var(--accent);border:none;border-radius:4px;color:#000;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:5px 12px;transition:all 0.2s;white-space:nowrap}
+  .add-sug-btn:hover{background:#00cc6a}
+  .add-sug-btn.added{background:var(--muted);cursor:default}
   .empty-state{text-align:center;padding:36px 20px;color:var(--muted);font-size:11px;letter-spacing:1px}
 
   /* P&L Table */
@@ -306,6 +322,15 @@ HTML = """
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Signal History</span><span class="panel-count" id="signalCount">0</span></div>
       <div class="panel-body" id="signalsList"><div class="empty-state">NO SIGNALS YET</div></div>
+      <div class="panel full-panel">
+      <div class="panel-header">
+      <span class="panel-title">&#128269; Stock Suggestions</span>
+      <span class="panel-count" id="sugCount">0</span>
+    </div>
+  <div class="panel-body" id="sugList">
+    <div class="empty-state">Scanning stocks... check back in a few minutes</div>
+  </div>
+</div>
     </div>
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Error Log</span><span class="panel-count" id="errorCount">0</span></div>
@@ -415,6 +440,16 @@ function editStock(symbol, support, resistance, buffer, quantity){
   document.getElementById('addBtn').textContent = 'UPDATE STOCK';
   document.querySelector('.add-stock-panel').scrollIntoView({behavior:'smooth'});
 }
+async function addFromSuggestion(symbol, support, resistance){
+  const res = await fetch('/api/levels/add', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({symbol, support, resistance, buffer_pct:0.5, quantity:1})
+  });
+  const data = await res.json();
+  if(data.success){ showToast('✅ '+symbol+' added!'); loadData(); }
+  else { showToast(data.error, true); }
+}
 async function loadData(){
   try{
     const data = await (await fetch('/api/data')).json();
@@ -485,7 +520,33 @@ async function loadData(){
     eEl.innerHTML = data.errors.length===0
       ? '<div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div>'
       : data.errors.map(e => `<div class="log-row"><span class="log-time">${e.time.split(' ')[1]||e.time}</span><span style="color:#ff4444">${e.message}</span></div>`).join('');
-
+    try {
+      const sugs = await (await fetch('/api/suggestions')).json();
+      const sugEl = document.getElementById('sugList');
+      document.getElementById('sugCount').textContent = sugs.length;
+      const levels = data.levels || {};
+      sugEl.innerHTML = sugs.length === 0
+        ? '<div class="empty-state">No suggestions right now — scanning every 30 min during market hours</div>'
+        : sugs.map(s => {
+        const alreadyAdded = !!levels[s.symbol];
+            return `<div class="suggestion-card">
+              <div class="sug-info">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="sug-symbol">${s.symbol}</span>
+                  <span class="signal-badge badge-${s.signal}">${s.signal}</span>
+                  <span class="sug-price">&#8377;${s.price}</span>
+                </div>
+                <div class="sug-reason">${s.reason} &nbsp;|&nbsp; S:&#8377;${s.support} R:&#8377;${s.resistance}</div>
+              </div>
+              <span class="sug-vol ${s.high_volume?'':'low'}">${s.volume_ratio}x vol</span>
+              <button class="add-sug-btn ${alreadyAdded?'added':''}"
+                onclick="${alreadyAdded?'':``addFromSuggestion('${s.symbol}',${s.support},${s.resistance})``}"
+                ${alreadyAdded?'disabled':''}>
+                ${alreadyAdded?'WATCHING':'+ ADD'}
+              </button>
+            </div>`;
+          }).join('');
+    } catch(e){ console.error('Suggestions error:', e); }
     // P&L table
     const tbody    = document.getElementById('pnlTableBody');
     const pnlTrades = data.pnl_trades || [];
