@@ -78,7 +78,9 @@ def load_levels():
 
 # ── Market hours check ────────────────────────────────────
 def is_market_open():
-    now = datetime.now()
+    from datetime import timezone, timedelta
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(IST)
     if now.weekday() >= 5:
         return False
     market_open  = now.replace(hour=9,  minute=15, second=0)
