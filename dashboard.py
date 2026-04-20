@@ -166,7 +166,10 @@ HTML = """
   .badge-WAITING{background:rgba(74,85,104,0.15);color:var(--muted);border:1px solid rgba(74,85,104,0.3)}
   .delete-btn{position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
   .delete-btn:hover{background:rgba(255,68,68,0.15);color:var(--sell)}
-
+  .card-actions{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+  .edit-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
+  .edit-btn:hover{background:rgba(77,166,255,0.15);color:var(--accent3)}
+  
   /* Stats */
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;position:relative;overflow:hidden}
@@ -403,6 +406,15 @@ async function deleteStock(symbol){
   }
 }
 
+function editStock(symbol, support, resistance, buffer, quantity){
+  document.getElementById('f-symbol').value     = symbol;
+  document.getElementById('f-support').value    = support;
+  document.getElementById('f-resistance').value = resistance;
+  document.getElementById('f-buffer').value     = buffer;
+  document.getElementById('f-quantity').value   = quantity;
+  document.getElementById('addBtn').textContent = 'UPDATE STOCK';
+  document.querySelector('.add-stock-panel').scrollIntoView({behavior:'smooth'});
+}
 async function loadData(){
   try{
     const data = await (await fetch('/api/data')).json();
@@ -446,7 +458,10 @@ async function loadData(){
         const sig   = sigs[symbol];
         return `
         <div class="stock-card ${sig||''}">
+          <div class="card-actions">
+          <button class="edit-btn" onclick="editStock('${symbol}',${lvl.support},${lvl.resistance},${lvl.buffer_pct},${lvl.quantity})" title="Edit">&#9998;</button>
           <button class="delete-btn" onclick="deleteStock('${symbol}')" title="Remove">&#10005;</button>
+        </div>
           <div class="stock-symbol">${symbol}</div>
           <div class="stock-price ${price?'':'no-data'}">${price ? '&#8377;'+price : '&#8212;'}</div>
           <div class="stock-levels">S: &#8377;${lvl.support} &nbsp;|&nbsp; R: &#8377;${lvl.resistance}</div>
