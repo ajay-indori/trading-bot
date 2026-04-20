@@ -156,11 +156,11 @@ def load_suggestions():
 
 
 def run_scanner():
-    """Run scanner in a loop — call this in a background thread."""
     while True:
         try:
-            now = datetime.now()
-            # Only scan during market hours + 30 min buffer
+            from datetime import timezone, timedelta
+            IST = timezone(timedelta(hours=5, minutes=30))
+            now = datetime.now(IST)
             if now.weekday() < 5:
                 market_open  = now.replace(hour=9,  minute=0,  second=0)
                 market_close = now.replace(hour=16, minute=0,  second=0)
