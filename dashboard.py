@@ -120,8 +120,8 @@ def delete_level():
 
 @app.route('/api/suggestions')
 def get_suggestions():
-    from stock_scanner import load_suggestions
     return jsonify(load_suggestions())
+
 # ── HTML Dashboard ────────────────────────────────────────
 HTML = """
 <!DOCTYPE html>
@@ -169,12 +169,12 @@ HTML = """
   .badge-HOLD{background:rgba(77,166,255,0.15);color:var(--hold);border:1px solid rgba(77,166,255,0.3)}
   .badge-STOP_LOSS{background:rgba(255,107,53,0.15);color:var(--stop);border:1px solid rgba(255,107,53,0.3)}
   .badge-WAITING{background:rgba(74,85,104,0.15);color:var(--muted);border:1px solid rgba(74,85,104,0.3)}
-  .delete-btn{background:rgba(255,68,68,0.15);border:none;color:#ff4444;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
-  .delete-btn:hover{background:rgba(255,68,68,0.35);color:#ff0000}
   .card-actions{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:2px}
   .edit-btn{background:rgba(255,200,0,0.15);border:none;color:#ffc800;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
   .edit-btn:hover{background:rgba(255,200,0,0.3);color:#ffd700}
-  
+  .delete-btn{background:rgba(255,68,68,0.15);border:none;color:#ff4444;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
+  .delete-btn:hover{background:rgba(255,68,68,0.35);color:#ff0000}
+
   /* Stats */
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;position:relative;overflow:hidden}
@@ -230,6 +230,9 @@ HTML = """
   .log-row:last-child{border-bottom:none}
   .log-time{color:var(--muted);white-space:nowrap;flex-shrink:0;font-size:10px}
   .full-panel{grid-column:1/-1}
+  .empty-state{text-align:center;padding:36px 20px;color:var(--muted);font-size:11px;letter-spacing:1px}
+
+  /* Suggestions */
   .suggestion-card{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(30,45,61,0.5);gap:12px}
   .suggestion-card:last-child{border-bottom:none}
   .sug-info{flex:1;min-width:0}
@@ -241,7 +244,6 @@ HTML = """
   .add-sug-btn{background:var(--accent);border:none;border-radius:4px;color:#000;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:5px 12px;transition:all 0.2s;white-space:nowrap}
   .add-sug-btn:hover{background:#00cc6a}
   .add-sug-btn.added{background:var(--muted);cursor:default}
-  .empty-state{text-align:center;padding:36px 20px;color:var(--muted);font-size:11px;letter-spacing:1px}
 
   /* P&L Table */
   .pnl-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -319,23 +321,31 @@ HTML = """
 
   <!-- Panels -->
   <div class="main-grid">
+
+    <!-- Signal History -->
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Signal History</span><span class="panel-count" id="signalCount">0</span></div>
       <div class="panel-body" id="signalsList"><div class="empty-state">NO SIGNALS YET</div></div>
-      <div class="panel full-panel">
-      <div class="panel-header">
-      <span class="panel-title">&#128269; Stock Suggestions</span>
-      <span class="panel-count" id="sugCount">0</span>
     </div>
-  <div class="panel-body" id="sugList">
-    <div class="empty-state">Scanning stocks... check back in a few minutes</div>
-  </div>
-</div>
-    </div>
+
+    <!-- Error Log -->
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Error Log</span><span class="panel-count" id="errorCount">0</span></div>
       <div class="panel-body" id="errorsList"><div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div></div>
     </div>
+
+    <!-- Stock Suggestions -->
+    <div class="panel full-panel">
+      <div class="panel-header">
+        <span class="panel-title">&#128269; Stock Suggestions</span>
+        <span class="panel-count" id="sugCount">0</span>
+      </div>
+      <div class="panel-body" id="sugList">
+        <div class="empty-state">Scanning stocks... check back in a few minutes during market hours</div>
+      </div>
+    </div>
+
+    <!-- P&L Trade History -->
     <div class="panel full-panel">
       <div class="panel-header"><span class="panel-title">P&amp;L Trade History</span><span class="panel-count" id="pnlCount">0</span></div>
       <div class="panel-body">
@@ -345,8 +355,9 @@ HTML = """
         </table>
       </div>
     </div>
-  </div>
-</div>
+
+  </div><!-- end main-grid -->
+</div><!-- end container -->
 
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
@@ -403,6 +414,7 @@ async function addStock(){
       document.getElementById('f-support').value    = '';
       document.getElementById('f-resistance').value = '';
       document.getElementById('f-quantity').value   = '1';
+      document.getElementById('addBtn').textContent = 'ADD STOCK';
       loadData();
     } else {
       showToast(data.error, true);
@@ -412,7 +424,7 @@ async function addStock(){
   }
 
   btn.disabled = false;
-  btn.textContent = 'ADD STOCK';
+  btn.textContent = btn.textContent === 'ADDING...' ? 'ADD STOCK' : btn.textContent;
 }
 
 async function deleteStock(symbol){
@@ -440,16 +452,22 @@ function editStock(symbol, support, resistance, buffer, quantity){
   document.getElementById('addBtn').textContent = 'UPDATE STOCK';
   document.querySelector('.add-stock-panel').scrollIntoView({behavior:'smooth'});
 }
+
 async function addFromSuggestion(symbol, support, resistance){
   const res = await fetch('/api/levels/add', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({symbol, support, resistance, buffer_pct:0.5, quantity:1})
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({symbol, support, resistance, buffer_pct: 0.5, quantity: 1})
   });
   const data = await res.json();
-  if(data.success){ showToast('✅ '+symbol+' added!'); loadData(); }
-  else { showToast(data.error, true); }
+  if(data.success){
+    showToast('✅ ' + symbol + ' added to watchlist!');
+    loadData();
+  } else {
+    showToast(data.error, true);
+  }
 }
+
 async function loadData(){
   try{
     const data = await (await fetch('/api/data')).json();
@@ -494,9 +512,9 @@ async function loadData(){
         return `
         <div class="stock-card ${sig||''}">
           <div class="card-actions">
-          <button class="edit-btn" onclick="editStock('${symbol}',${lvl.support},${lvl.resistance},${lvl.buffer_pct},${lvl.quantity})" title="Edit">&#9998;</button>
-          <button class="delete-btn" onclick="deleteStock('${symbol}')" title="Remove">&#10005;</button>
-        </div>
+            <button class="edit-btn" onclick="editStock('${symbol}',${lvl.support},${lvl.resistance},${lvl.buffer_pct},${lvl.quantity})" title="Edit">&#9998;</button>
+            <button class="delete-btn" onclick="deleteStock('${symbol}')" title="Remove">&#10005;</button>
+          </div>
           <div class="stock-symbol">${symbol}</div>
           <div class="stock-price ${price?'':'no-data'}">${price ? '&#8377;'+price : '&#8212;'}</div>
           <div class="stock-levels">S: &#8377;${lvl.support} &nbsp;|&nbsp; R: &#8377;${lvl.resistance}</div>
@@ -520,35 +538,37 @@ async function loadData(){
     eEl.innerHTML = data.errors.length===0
       ? '<div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div>'
       : data.errors.map(e => `<div class="log-row"><span class="log-time">${e.time.split(' ')[1]||e.time}</span><span style="color:#ff4444">${e.message}</span></div>`).join('');
+
+    // Suggestions
     try {
-      const sugs = await (await fetch('/api/suggestions')).json();
+      const sugs  = await (await fetch('/api/suggestions')).json();
       const sugEl = document.getElementById('sugList');
       document.getElementById('sugCount').textContent = sugs.length;
-      const levels = data.levels || {};
       sugEl.innerHTML = sugs.length === 0
         ? '<div class="empty-state">No suggestions right now — scanning every 30 min during market hours</div>'
         : sugs.map(s => {
-        const alreadyAdded = !!levels[s.symbol];
+            const alreadyAdded = !!levels[s.symbol];
             return `<div class="suggestion-card">
               <div class="sug-info">
-                <div style="display:flex;align-items:center;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                   <span class="sug-symbol">${s.symbol}</span>
                   <span class="signal-badge badge-${s.signal}">${s.signal}</span>
                   <span class="sug-price">&#8377;${s.price}</span>
                 </div>
-                <div class="sug-reason">${s.reason} &nbsp;|&nbsp; S:&#8377;${s.support} R:&#8377;${s.resistance}</div>
+                <div class="sug-reason">${s.reason} &nbsp;|&nbsp; S:&#8377;${s.support} &nbsp;R:&#8377;${s.resistance}</div>
               </div>
               <span class="sug-vol ${s.high_volume?'':'low'}">${s.volume_ratio}x vol</span>
               <button class="add-sug-btn ${alreadyAdded?'added':''}"
-                onclick="${alreadyAdded?'':``addFromSuggestion('${s.symbol}',${s.support},${s.resistance})``}"
+                onclick="${alreadyAdded?'void(0)':`addFromSuggestion('${s.symbol}',${s.support},${s.resistance})`}"
                 ${alreadyAdded?'disabled':''}>
                 ${alreadyAdded?'WATCHING':'+ ADD'}
               </button>
             </div>`;
           }).join('');
     } catch(e){ console.error('Suggestions error:', e); }
+
     // P&L table
-    const tbody    = document.getElementById('pnlTableBody');
+    const tbody     = document.getElementById('pnlTableBody');
     const pnlTrades = data.pnl_trades || [];
     tbody.innerHTML = pnlTrades.length===0
       ? '<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted);font-size:11px">NO TRADES YET</td></tr>'
@@ -572,7 +592,6 @@ async function loadData(){
   } catch(e){ console.error(e); }
 }
 
-// Allow Enter key to add stock
 document.addEventListener('keydown', e => {
   if(e.key === 'Enter' && document.activeElement.classList.contains('form-input')){
     addStock();
