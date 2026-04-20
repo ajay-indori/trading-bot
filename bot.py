@@ -10,6 +10,7 @@ import os
 import requests
 from datetime import datetime, timedelta
 from growwapi import GrowwAPI
+from news_trigger import check_news_trigger          # ← NEW
 
 # ── Logging setup ─────────────────────────────────────────
 logging.basicConfig(
@@ -53,7 +54,7 @@ client       = GrowwAPI(access_token)
 log.info("Connected! Bot is running...")
 
 # ── Settings ──────────────────────────────────────────────
-STOP_PCT    = 0.97   # 3% stop loss
+STOP_PCT    = 0.97
 TRADES_FILE = "trades.json"
 LEVELS_FILE = "levels.json"
 
@@ -171,7 +172,6 @@ def get_sr_signal(symbol, current_price, level):
     return raw_signal, support, resistance
 
 # ── Process one stock ─────────────────────────────────────
-# ── Process one stock ─────────────────────────────────────
 def process_stock(symbol, level, trading_enabled=True):
     try:
         ltp_data      = client.get_ltp(
@@ -182,10 +182,8 @@ def process_stock(symbol, level, trading_enabled=True):
         quantity      = level.get("quantity", 1)
         stop_loss     = round(current_price * STOP_PCT, 1)
 
-        # Always log price so dashboard can show it
         log.info(f"{symbol} ₹{current_price} | Signal: HOLD")
 
-        # Only trade during market hours
         if not trading_enabled:
             return
 
@@ -195,19 +193,44 @@ def process_stock(symbol, level, trading_enabled=True):
         if current_price <= stop_loss:
             signal = "STOP_LOSS"
 
+        # ── NEWS GATE (runs only when a real trade is about to happen) ────────
+        if signal in ("BUY", "SELL"):
+            news = check_news_trigger(symbol, quantity)
+
+            if not news["allowed"]:
+                msg = (
+                    f"🚫 NEWS BLOCK: {signal} {symbol} cancelled\n"
+                    f"Sentiment: {news['sentiment']}\n"
+                    f"Reason: {news['reason']}"
+                )
+                log.info(f"{symbol} | Signal: NEWS_BLOCK | {news['reason']}")
+                send_telegram(msg)
+                return                          # ← skip this trade entirely
+
+            if news["qty"] != quantity:
+                log.info(
+                    f"{symbol} | BOOST: qty {quantity} → {news['qty']} "
+                    f"({news['sentiment']} news: {news['reason']})"
+                )
+                quantity = news["qty"]          # ← use boosted quantity
+
+            log.info(f"{symbol} | News: {news['decision']} | {news['sentiment']} | {news['reason']}")
+        # ── END NEWS GATE ─────────────────────────────────────────────────────
+
         if signal == "BUY":
             order = place_order(symbol, client.TRANSACTION_TYPE_BUY, round(current_price, 1), quantity)
-            msg   = f"✅ BUY {symbol}\nPrice: ₹{current_price}\nSupport: ₹{support}\nVolume confirmed!"
+            msg   = f"✅ BUY {symbol}\nPrice: ₹{current_price}\nSupport: ₹{support}\nVolume confirmed!\nNews: {news['sentiment']} ✓"
             log.info(msg)
             send_telegram(msg)
 
         elif signal == "SELL":
             order = place_order(symbol, client.TRANSACTION_TYPE_SELL, round(current_price, 1), quantity)
-            msg   = f"💰 SELL {symbol}\nPrice: ₹{current_price}\nResistance: ₹{resistance}\nVolume confirmed!"
+            msg   = f"💰 SELL {symbol}\nPrice: ₹{current_price}\nResistance: ₹{resistance}\nVolume confirmed!\nNews: {news['sentiment']} ✓"
             log.info(msg)
             send_telegram(msg)
 
         elif signal == "STOP_LOSS":
+            # Stop loss bypasses news check — always execute
             order = place_order(symbol, client.TRANSACTION_TYPE_SELL, round(current_price, 1), quantity)
             msg   = f"🛑 STOP LOSS {symbol}\nPrice: ₹{current_price}"
             log.info(msg)
@@ -215,7 +238,7 @@ def process_stock(symbol, level, trading_enabled=True):
 
     except Exception as e:
         log.error(f"❌ Error processing {symbol}: {e}")
-# ── Main loop ─────────────────────────────────────────────
+
 # ── Main loop ─────────────────────────────────────────────
 while True:
     try:
