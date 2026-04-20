@@ -461,7 +461,7 @@ async function loadData(){
     sEl.innerHTML = data.signals.length===0
       ? '<div class="empty-state">NO SIGNALS YET</div>'
       : data.signals.map(s => {
-          const sig = (s.message.match(/Signal: (\w+)/)||[])[1];
+          const sig = (s.message.match(/Signal: (\\w+)/)||[])[1];
           return `<div class="log-row"><span class="log-time">${s.time.split(' ')[1]||s.time}</span><span>${sig?badgeHTML(sig):''} ${s.message}</span></div>`;
         }).join('');
 
