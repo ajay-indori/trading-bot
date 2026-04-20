@@ -181,6 +181,16 @@ def delete_level():
     return jsonify({"success": False, "error": f"{symbol} not found"})
 
 @app.route('/api/suggestions')
+@app.route('/api/suggestions/scan', methods=['POST'])
+def trigger_scan():
+    try:
+        from stock_scanner import scan_stocks, save_suggestions
+        suggestions = scan_stocks()
+        save_suggestions(suggestions)
+        return jsonify({"success": True, "count": len(suggestions)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+        
 @login_required
 def get_suggestions():
     return jsonify(load_suggestions())
@@ -402,9 +412,13 @@ HTML = """
   <div class="main-grid">
 
     <!-- Signal History -->
-    <div class="panel">
-      <div class="panel-header"><span class="panel-title">Signal History</span><span class="panel-count" id="signalCount">0</span></div>
-      <div class="panel-body" id="signalsList"><div class="empty-state">NO SIGNALS YET</div></div>
+    <div class="panel-header">
+      <span class="panel-title">&#128269; Stock Suggestions</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:10px;color:var(--muted)" id="lastScanTime"></span>
+        <button class="add-btn" id="scanBtn" onclick="triggerScan()" style="padding:4px 14px;font-size:10px">&#128269; SCAN NOW</button>
+        <span class="panel-count" id="sugCount">0</span>
+      </div>
     </div>
 
     <!-- Error Log -->
@@ -546,7 +560,26 @@ async function addFromSuggestion(symbol, support, resistance){
     showToast(data.error, true);
   }
 }
-
+async function triggerScan(){
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ SCANNING...';
+  try {
+    const res  = await fetch('/api/suggestions/scan', {method:'POST'});
+    const data = await res.json();
+    if(data.success){
+      document.getElementById('lastScanTime').textContent = 'Last scan: ' + new Date().toLocaleTimeString();
+      showToast('✅ Found ' + data.count + ' suggestions!');
+      loadData();
+    } else {
+      showToast('Scan failed: ' + data.error, true);
+    }
+  } catch(e){
+    showToast('Scan error', true);
+  }
+  btn.disabled = false;
+  btn.textContent = '🔍 SCAN NOW';
+}
 async function loadData(){
   try{
     const data = await (await fetch('/api/data')).json();
