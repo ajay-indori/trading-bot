@@ -33,7 +33,10 @@ def load_env():
                     key, value = line.split("=", 1)
                     os.environ[key.strip()] = value.strip()
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 load_env()
+
+
 TOTP_TOKEN         = os.environ.get("GROWW_TOTP_TOKEN")
 TOTP_SECRET        = os.environ.get("GROWW_TOTP_SECRET")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
