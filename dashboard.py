@@ -164,11 +164,11 @@ HTML = """
   .badge-HOLD{background:rgba(77,166,255,0.15);color:var(--hold);border:1px solid rgba(77,166,255,0.3)}
   .badge-STOP_LOSS{background:rgba(255,107,53,0.15);color:var(--stop);border:1px solid rgba(255,107,53,0.3)}
   .badge-WAITING{background:rgba(74,85,104,0.15);color:var(--muted);border:1px solid rgba(74,85,104,0.3)}
-  .delete-btn{position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
-  .delete-btn:hover{background:rgba(255,68,68,0.15);color:var(--sell)}
-  .card-actions{position:absolute;top:8px;right:8px;display:flex;gap:4px}
-  .edit-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
-  .edit-btn:hover{background:rgba(77,166,255,0.15);color:var(--accent3)}
+  .delete-btn{background:rgba(255,68,68,0.15);border:none;color:#ff4444;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
+  .delete-btn:hover{background:rgba(255,68,68,0.35);color:#ff0000}
+  .card-actions{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:2px}
+  .edit-btn{background:rgba(255,200,0,0.15);border:none;color:#ffc800;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
+  .edit-btn:hover{background:rgba(255,200,0,0.3);color:#ffd700}
   
   /* Stats */
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
