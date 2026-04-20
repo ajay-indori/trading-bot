@@ -1,19 +1,19 @@
 {
   "MOSCHIP": {
-    "support": 190.0,
-    "resistance": 210.0,
+    "support": 190,
+    "resistance": 210,
     "buffer_pct": 0.5,
     "quantity": 1
   },
   "PACEDIGITK": {
-    "support": 170.0,
-    "resistance": 190.0,
+    "support": 170,
+    "resistance": 190,
     "buffer_pct": 0.5,
     "quantity": 1
   },
   "URBANCO": {
-    "support": 130.0,
-    "resistance": 200.0,
+    "support": 130,
+    "resistance": 200,
     "buffer_pct": 0.5,
     "quantity": 10
   }
