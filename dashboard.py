@@ -68,7 +68,6 @@ LOG_FILE    = "bot_log.txt"
 TRADES_FILE = "trades.json"
 LEVELS_FILE = "levels.json"
 
-# ── Data helpers ──────────────────────────────────────────
 def load_levels():
     if os.path.exists(LEVELS_FILE):
         with open(LEVELS_FILE) as f:
@@ -99,7 +98,7 @@ def parse_logs():
     return trades[-20:][::-1], signals[-100:][::-1], errors[-10:][::-1]
 
 def get_latest_prices(signals):
-    levels  = load_levels()
+    levels = load_levels()
     prices, latest_signals = {}, {}
     for s in signals:
         for stock in levels.keys():
@@ -182,7 +181,12 @@ def delete_level():
     return jsonify({"success": False, "error": f"{symbol} not found"})
 
 @app.route('/api/suggestions')
+@login_required
+def get_suggestions():
+    return jsonify(load_suggestions())
+
 @app.route('/api/suggestions/scan', methods=['POST'])
+@login_required
 def trigger_scan():
     try:
         from stock_scanner import scan_stocks, save_suggestions
@@ -191,10 +195,6 @@ def trigger_scan():
         return jsonify({"success": True, "count": len(suggestions)})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-        
-@login_required
-def get_suggestions():
-    return jsonify(load_suggestions())
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -232,16 +232,14 @@ HTML = """
   body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;min-height:100vh}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
   .container{max-width:1300px;margin:0 auto;padding:24px;position:relative;z-index:1}
-
   header{display:flex;align-items:center;justify-content:space-between;padding:24px 0 32px;border-bottom:1px solid var(--border);margin-bottom:32px}
   .logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800}
   .logo span{color:var(--accent)}
+  .header-right{display:flex;align-items:center;gap:12px}
   .live-badge{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
   .pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
   .pulse.stopped{background:var(--sell);animation:none}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
-
-  /* Stock cards */
   .stocks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:28px}
   .stock-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;overflow:hidden}
   .stock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--muted);transition:background 0.3s}
@@ -264,8 +262,6 @@ HTML = """
   .edit-btn:hover{background:rgba(255,200,0,0.3);color:#ffd700}
   .delete-btn{background:rgba(255,68,68,0.15);border:none;color:#ff4444;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:all 0.2s}
   .delete-btn:hover{background:rgba(255,68,68,0.35);color:#ff0000}
-
-  /* Stats */
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;position:relative;overflow:hidden}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--muted)}
@@ -278,8 +274,6 @@ HTML = """
   .stat-card.red .stat-value{color:var(--sell)}
   .stat-card.blue .stat-value{color:var(--accent3)}
   .stat-card.orange .stat-value{color:var(--stop)}
-
-  /* Status bar */
   .status-bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 24px;margin-bottom:24px;display:flex;align-items:center;gap:24px;font-size:12px}
   .status-item{display:flex;align-items:center;gap:8px}
   .status-dot{width:6px;height:6px;border-radius:50%}
@@ -288,8 +282,6 @@ HTML = """
   .status-dot.grey{background:var(--muted)}
   .status-label{color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase}
   .status-value{font-weight:700}
-
-  /* Add stock form */
   .add-stock-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:24px}
   .add-stock-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
   .form-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:12px;align-items:end}
@@ -301,13 +293,9 @@ HTML = """
   .add-btn{background:var(--accent);border:none;border-radius:4px;color:#000;cursor:pointer;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:1px;padding:9px 20px;transition:all 0.2s;white-space:nowrap}
   .add-btn:hover{background:#00cc6a}
   .add-btn:disabled{background:var(--muted);cursor:not-allowed}
-
-  /* Toast */
   .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:12px 20px;font-size:12px;color:var(--accent);z-index:1000;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
   .toast.error{border-color:var(--sell);color:var(--sell)}
   .toast.show{opacity:1;transform:translateY(0)}
-
-  /* Panels */
   .main-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
   .panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
@@ -321,8 +309,6 @@ HTML = """
   .log-time{color:var(--muted);white-space:nowrap;flex-shrink:0;font-size:10px}
   .full-panel{grid-column:1/-1}
   .empty-state{text-align:center;padding:36px 20px;color:var(--muted);font-size:11px;letter-spacing:1px}
-
-  /* Suggestions */
   .suggestion-card{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(30,45,61,0.5);gap:12px}
   .suggestion-card:last-child{border-bottom:none}
   .sug-info{flex:1;min-width:0}
@@ -334,8 +320,6 @@ HTML = """
   .add-sug-btn{background:var(--accent);border:none;border-radius:4px;color:#000;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:5px 12px;transition:all 0.2s;white-space:nowrap}
   .add-sug-btn:hover{background:#00cc6a}
   .add-sug-btn.added{background:var(--muted);cursor:default}
-
-  /* P&L Table */
   .pnl-table{width:100%;border-collapse:collapse;font-size:12px}
   .pnl-table th{text-align:left;padding:8px 12px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
   .pnl-table td{padding:10px 12px;border-bottom:1px solid rgba(30,45,61,0.5)}
@@ -343,10 +327,10 @@ HTML = """
   .pnl-positive{color:var(--buy);font-weight:700}
   .pnl-negative{color:var(--sell);font-weight:700}
   .pnl-pending{color:var(--muted)}
-
   .refresh-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 16px;border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
   .refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
-
+  .logout-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 16px;border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-decoration:none}
+  .logout-btn:hover{border-color:var(--sell);color:var(--sell)}
   @media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -354,8 +338,9 @@ HTML = """
 <div class="container">
   <header>
     <div class="logo">MULTI-STOCK <span>TRADE BOT</span></div>
-    <div style="display:flex;align-items:center;gap:16px">
+    <div class="header-right">
       <button class="refresh-btn" onclick="loadData()">&#8635; REFRESH</button>
+      <a href="/logout" class="logout-btn">LOGOUT</a>
       <div class="live-badge"><div class="pulse" id="statusPulse"></div><span id="statusText">CHECKING...</span></div>
     </div>
   </header>
@@ -413,39 +398,54 @@ HTML = """
   <div class="main-grid">
 
     <!-- Signal History -->
-    <div class="panel-header">
-      <span class="panel-title">&#128269; Stock Suggestions</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:10px;color:var(--muted)" id="lastScanTime"></span>
-        <button class="add-btn" id="scanBtn" onclick="triggerScan()" style="padding:4px 14px;font-size:10px">&#128269; SCAN NOW</button>
-        <span class="panel-count" id="sugCount">0</span>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Signal History</span>
+        <span class="panel-count" id="signalCount">0</span>
+      </div>
+      <div class="panel-body" id="signalsList">
+        <div class="empty-state">NO SIGNALS YET</div>
       </div>
     </div>
 
     <!-- Error Log -->
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Error Log</span><span class="panel-count" id="errorCount">0</span></div>
-      <div class="panel-body" id="errorsList"><div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div></div>
+      <div class="panel-header">
+        <span class="panel-title">Error Log</span>
+        <span class="panel-count" id="errorCount">0</span>
+      </div>
+      <div class="panel-body" id="errorsList">
+        <div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div>
+      </div>
     </div>
 
     <!-- Stock Suggestions -->
     <div class="panel full-panel">
       <div class="panel-header">
         <span class="panel-title">&#128269; Stock Suggestions</span>
-        <span class="panel-count" id="sugCount">0</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:10px;color:var(--muted)" id="lastScanTime"></span>
+          <button class="add-btn" id="scanBtn" onclick="triggerScan()" style="padding:4px 14px;font-size:10px">&#128269; SCAN NOW</button>
+          <span class="panel-count" id="sugCount">0</span>
+        </div>
       </div>
       <div class="panel-body" id="sugList">
-        <div class="empty-state">Scanning stocks... check back in a few minutes during market hours</div>
+        <div class="empty-state">Click SCAN NOW to find stocks near key levels</div>
       </div>
     </div>
 
     <!-- P&L Trade History -->
     <div class="panel full-panel">
-      <div class="panel-header"><span class="panel-title">P&amp;L Trade History</span><span class="panel-count" id="pnlCount">0</span></div>
+      <div class="panel-header">
+        <span class="panel-title">P&amp;L Trade History</span>
+        <span class="panel-count" id="pnlCount">0</span>
+      </div>
       <div class="panel-body">
         <table class="pnl-table">
           <thead><tr><th>Time</th><th>Stock</th><th>Action</th><th>Price</th><th>Qty</th><th>P&amp;L</th></tr></thead>
-          <tbody id="pnlTableBody"><tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted);font-size:11px">NO TRADES YET</td></tr></tbody>
+          <tbody id="pnlTableBody">
+            <tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted);font-size:11px">NO TRADES YET</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
@@ -453,12 +453,15 @@ HTML = """
   </div><!-- end main-grid -->
 </div><!-- end container -->
 
-<!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
 <script>
+function el(id){ return document.getElementById(id); }
+function setText(id, val){ const e = el(id); if(e) e.textContent = val; }
+function setHTML(id, val){ const e = el(id); if(e) e.innerHTML = val; }
+
 function showToast(msg, isError=false){
-  const t = document.getElementById('toast');
+  const t = el('toast');
   t.textContent = msg;
   t.className = 'toast' + (isError ? ' error' : '') + ' show';
   setTimeout(() => t.className = 'toast', 3000);
@@ -476,189 +479,140 @@ function badgeHTML(s){
 }
 
 async function addStock(){
-  const symbol     = document.getElementById('f-symbol').value.trim().toUpperCase();
-  const support    = document.getElementById('f-support').value;
-  const resistance = document.getElementById('f-resistance').value;
-  const buffer     = document.getElementById('f-buffer').value || 0.5;
-  const quantity   = document.getElementById('f-quantity').value || 1;
-
-  if(!symbol || !support || !resistance){
-    showToast('Please fill Symbol, Support and Resistance', true);
-    return;
-  }
-  if(parseFloat(support) >= parseFloat(resistance)){
-    showToast('Support must be less than Resistance', true);
-    return;
-  }
-
-  const btn = document.getElementById('addBtn');
-  btn.disabled = true;
-  btn.textContent = 'ADDING...';
-
+  const symbol     = el('f-symbol').value.trim().toUpperCase();
+  const support    = el('f-support').value;
+  const resistance = el('f-resistance').value;
+  const buffer     = el('f-buffer').value || 0.5;
+  const quantity   = el('f-quantity').value || 1;
+  if(!symbol || !support || !resistance){ showToast('Please fill Symbol, Support and Resistance', true); return; }
+  if(parseFloat(support) >= parseFloat(resistance)){ showToast('Support must be less than Resistance', true); return; }
+  const btn = el('addBtn');
+  btn.disabled = true; btn.textContent = 'ADDING...';
   try {
-    const res  = await fetch('/api/levels/add', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({symbol, support, resistance, buffer_pct: buffer, quantity})
-    });
+    const res  = await fetch('/api/levels/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,support,resistance,buffer_pct:buffer,quantity})});
     const data = await res.json();
     if(data.success){
-      showToast(`✅ ${symbol} added! Bot will pick it up next scan.`);
-      document.getElementById('f-symbol').value     = '';
-      document.getElementById('f-support').value    = '';
-      document.getElementById('f-resistance').value = '';
-      document.getElementById('f-quantity').value   = '1';
-      document.getElementById('addBtn').textContent = 'ADD STOCK';
+      showToast('✅ ' + symbol + ' added!');
+      el('f-symbol').value=''; el('f-support').value=''; el('f-resistance').value=''; el('f-quantity').value='1';
+      btn.textContent = 'ADD STOCK';
       loadData();
-    } else {
-      showToast(data.error, true);
-    }
-  } catch(e){
-    showToast('Failed to add stock', true);
-  }
-
+    } else { showToast(data.error, true); }
+  } catch(e){ showToast('Failed to add stock', true); }
   btn.disabled = false;
-  btn.textContent = btn.textContent === 'ADDING...' ? 'ADD STOCK' : btn.textContent;
+  if(btn.textContent === 'ADDING...') btn.textContent = 'ADD STOCK';
 }
 
 async function deleteStock(symbol){
-  if(!confirm(`Remove ${symbol} from your watchlist?`)) return;
-  const res  = await fetch('/api/levels/delete', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({symbol})
-  });
+  if(!confirm('Remove ' + symbol + ' from your watchlist?')) return;
+  const res  = await fetch('/api/levels/delete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});
   const data = await res.json();
-  if(data.success){
-    showToast(`${symbol} removed`);
-    loadData();
-  } else {
-    showToast(data.error, true);
-  }
+  if(data.success){ showToast(symbol + ' removed'); loadData(); }
+  else { showToast(data.error, true); }
 }
 
 function editStock(symbol, support, resistance, buffer, quantity){
-  document.getElementById('f-symbol').value     = symbol;
-  document.getElementById('f-support').value    = support;
-  document.getElementById('f-resistance').value = resistance;
-  document.getElementById('f-buffer').value     = buffer;
-  document.getElementById('f-quantity').value   = quantity;
-  document.getElementById('addBtn').textContent = 'UPDATE STOCK';
+  el('f-symbol').value=symbol; el('f-support').value=support;
+  el('f-resistance').value=resistance; el('f-buffer').value=buffer; el('f-quantity').value=quantity;
+  el('addBtn').textContent = 'UPDATE STOCK';
   document.querySelector('.add-stock-panel').scrollIntoView({behavior:'smooth'});
 }
 
 async function addFromSuggestion(symbol, support, resistance){
-  const res = await fetch('/api/levels/add', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({symbol, support, resistance, buffer_pct: 0.5, quantity: 1})
-  });
+  const res  = await fetch('/api/levels/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,support,resistance,buffer_pct:0.5,quantity:1})});
   const data = await res.json();
-  if(data.success){
-    showToast('✅ ' + symbol + ' added to watchlist!');
-    loadData();
-  } else {
-    showToast(data.error, true);
-  }
+  if(data.success){ showToast('✅ ' + symbol + ' added!'); loadData(); }
+  else { showToast(data.error, true); }
 }
+
 async function triggerScan(){
-  const btn = document.getElementById('scanBtn');
-  btn.disabled = true;
-  btn.textContent = '⏳ SCANNING...';
+  const btn = el('scanBtn');
+  btn.disabled = true; btn.textContent = '⏳ SCANNING...';
   try {
     const res  = await fetch('/api/suggestions/scan', {method:'POST'});
     const data = await res.json();
     if(data.success){
-      document.getElementById('lastScanTime').textContent = 'Last scan: ' + new Date().toLocaleTimeString();
+      setText('lastScanTime', 'Last scan: ' + new Date().toLocaleTimeString());
       showToast('✅ Found ' + data.count + ' suggestions!');
       loadData();
-    } else {
-      showToast('Scan failed: ' + data.error, true);
-    }
-  } catch(e){
-    showToast('Scan error', true);
-  }
-  btn.disabled = false;
-  btn.textContent = '🔍 SCAN NOW';
+    } else { showToast('Scan failed: ' + data.error, true); }
+  } catch(e){ showToast('Scan error', true); }
+  btn.disabled = false; btn.textContent = '🔍 SCAN NOW';
 }
+
 async function loadData(){
   try{
     const data = await (await fetch('/api/data')).json();
 
     // Status
     const running = data.status==='RUNNING';
-    document.getElementById('statusPulse').className = 'pulse'+(running?'':' stopped');
-    document.getElementById('statusText').textContent = running?'BOT LIVE':'BOT STOPPED';
-    document.getElementById('botDot').className = 'status-dot '+(running?'green':'red');
-    document.getElementById('botStatus').textContent = data.status;
+    const pulse = el('statusPulse');
+    if(pulse) pulse.className = 'pulse'+(running?'':' stopped');
+    setText('statusText', running?'BOT LIVE':'BOT STOPPED');
+    const botDot = el('botDot');
+    if(botDot) botDot.className = 'status-dot '+(running?'green':'red');
+    setText('botStatus', data.status);
     const mkt = isMarketOpen();
-    document.getElementById('marketDot').className = 'status-dot '+(mkt?'green':'grey');
-    document.getElementById('marketStatus').textContent = mkt?'OPEN':'CLOSED';
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+    const mktDot = el('marketDot');
+    if(mktDot) mktDot.className = 'status-dot '+(mkt?'green':'grey');
+    setText('marketStatus', mkt?'OPEN':'CLOSED');
+    setText('lastUpdated', new Date().toLocaleTimeString());
 
     // Stats
     const levels = data.levels || {};
-    document.getElementById('stockCount').textContent  = Object.keys(levels).length;
-    document.getElementById('totalTrades').textContent = data.trades.length;
-    document.getElementById('totalErrors').textContent = data.errors.length;
-    document.getElementById('signalCount').textContent = data.signals.length;
-    document.getElementById('errorCount').textContent  = data.errors.length;
-    document.getElementById('winTrades').textContent   = data.win_trades || 0;
-    document.getElementById('pnlCount').textContent    = data.pnl_trades ? data.pnl_trades.length : 0;
+    setText('stockCount',  Object.keys(levels).length);
+    setText('totalTrades', data.trades.length);
+    setText('totalErrors', data.errors.length);
+    setText('signalCount', data.signals.length);
+    setText('errorCount',  data.errors.length);
+    setText('winTrades',   data.win_trades || 0);
+    setText('pnlCount',    data.pnl_trades ? data.pnl_trades.length : 0);
 
     const pnl   = data.total_pnl || 0;
-    const pnlEl = document.getElementById('totalPnl');
-    pnlEl.innerHTML = (pnl >= 0 ? '+' : '') + '&#8377;' + pnl;
-    pnlEl.style.color = pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+    const pnlEl = el('totalPnl');
+    if(pnlEl){ pnlEl.innerHTML = (pnl>=0?'+':'')+'&#8377;'+pnl; pnlEl.style.color=pnl>=0?'var(--buy)':'var(--sell)'; }
 
     // Stock cards
-    const grid   = document.getElementById('stocksGrid');
     const prices = data.prices || {};
     const sigs   = data.latest_signals || {};
-
     if(Object.keys(levels).length === 0){
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No stocks added yet. Use the form above to add your first stock!</div>';
+      setHTML('stocksGrid', '<div class="empty-state" style="grid-column:1/-1">No stocks added yet. Use the form above!</div>');
     } else {
-      grid.innerHTML = Object.entries(levels).map(([symbol, lvl]) => {
+      setHTML('stocksGrid', Object.entries(levels).map(([symbol, lvl]) => {
         const price = prices[symbol];
         const sig   = sigs[symbol];
-        return `
-        <div class="stock-card ${sig||''}">
+        return `<div class="stock-card ${sig||''}">
           <div class="card-actions">
             <button class="edit-btn" onclick="editStock('${symbol}',${lvl.support},${lvl.resistance},${lvl.buffer_pct},${lvl.quantity})" title="Edit">&#9998;</button>
             <button class="delete-btn" onclick="deleteStock('${symbol}')" title="Remove">&#10005;</button>
           </div>
           <div class="stock-symbol">${symbol}</div>
-          <div class="stock-price ${price?'':'no-data'}">${price ? '&#8377;'+price : '&#8212;'}</div>
+          <div class="stock-price ${price?'':'no-data'}">${price?'&#8377;'+price:'&#8212;'}</div>
           <div class="stock-levels">S: &#8377;${lvl.support} &nbsp;|&nbsp; R: &#8377;${lvl.resistance}</div>
           <div class="stock-levels">Qty: ${lvl.quantity} &nbsp;|&nbsp; Buffer: ${lvl.buffer_pct}%</div>
           ${badgeHTML(sig)}
         </div>`;
-      }).join('');
+      }).join(''));
     }
 
     // Signals
-    const sEl = document.getElementById('signalsList');
-    sEl.innerHTML = data.signals.length===0
+    setHTML('signalsList', data.signals.length===0
       ? '<div class="empty-state">NO SIGNALS YET</div>'
       : data.signals.map(s => {
           const sig = (s.message.match(/Signal: (\\w+)/)||[])[1];
           return `<div class="log-row"><span class="log-time">${s.time.split(' ')[1]||s.time}</span><span>${sig?badgeHTML(sig):''} ${s.message}</span></div>`;
-        }).join('');
+        }).join(''));
 
     // Errors
-    const eEl = document.getElementById('errorsList');
-    eEl.innerHTML = data.errors.length===0
+    setHTML('errorsList', data.errors.length===0
       ? '<div class="empty-state">NO ERRORS &#8212; ALL CLEAR &#10003;</div>'
-      : data.errors.map(e => `<div class="log-row"><span class="log-time">${e.time.split(' ')[1]||e.time}</span><span style="color:#ff4444">${e.message}</span></div>`).join('');
+      : data.errors.map(e => `<div class="log-row"><span class="log-time">${e.time.split(' ')[1]||e.time}</span><span style="color:#ff4444">${e.message}</span></div>`).join(''));
 
     // Suggestions
     try {
       const sugs  = await (await fetch('/api/suggestions')).json();
-      const sugEl = document.getElementById('sugList');
-      document.getElementById('sugCount').textContent = sugs.length;
-      sugEl.innerHTML = sugs.length === 0
-        ? '<div class="empty-state">No suggestions right now — scanning every 30 min during market hours</div>'
+      setText('sugCount', sugs.length);
+      setHTML('sugList', sugs.length===0
+        ? '<div class="empty-state">Click SCAN NOW to find stocks near key levels</div>'
         : sugs.map(s => {
             const alreadyAdded = !!levels[s.symbol];
             return `<div class="suggestion-card">
@@ -677,21 +631,20 @@ async function loadData(){
                 ${alreadyAdded?'WATCHING':'+ ADD'}
               </button>
             </div>`;
-          }).join('');
+          }).join(''));
     } catch(e){ console.error('Suggestions error:', e); }
 
     // P&L table
-    const tbody     = document.getElementById('pnlTableBody');
     const pnlTrades = data.pnl_trades || [];
-    tbody.innerHTML = pnlTrades.length===0
+    setHTML('pnlTableBody', pnlTrades.length===0
       ? '<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted);font-size:11px">NO TRADES YET</td></tr>'
       : pnlTrades.map(t => {
           let pnlHTML = '<span class="pnl-pending">OPEN</span>';
           if(t.pnl !== null && t.pnl !== 'closed'){
-            const cls = t.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+            const cls = t.pnl>=0?'pnl-positive':'pnl-negative';
             pnlHTML = `<span class="${cls}">${t.pnl>=0?'+':''}&#8377;${t.pnl}</span>`;
           }
-          const ac = t.action==='BUY' ? 'var(--buy)' : 'var(--sell)';
+          const ac = t.action==='BUY'?'var(--buy)':'var(--sell)';
           return `<tr>
             <td style="color:var(--muted);font-size:10px">${t.time}</td>
             <td style="font-weight:700">${t.symbol}</td>
@@ -700,15 +653,13 @@ async function loadData(){
             <td>${t.quantity}</td>
             <td>${pnlHTML}</td>
           </tr>`;
-        }).join('');
+        }).join(''));
 
-  } catch(e){ console.error(e); }
+  } catch(e){ console.error('loadData error:', e); }
 }
 
 document.addEventListener('keydown', e => {
-  if(e.key === 'Enter' && document.activeElement.classList.contains('form-input')){
-    addStock();
-  }
+  if(e.key==='Enter' && document.activeElement.classList.contains('form-input')) addStock();
 });
 
 loadData();
